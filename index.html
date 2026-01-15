@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bankin' - Predictive Balance & Overdraft Alerts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #10B981;
+            --primary-light: #34D399;
+            --secondary: #6366F1;
+            --accent: #F59E0B;
+            --danger: #EF4444;
+            --danger-light: #FCA5A5;
+            --warning: #F59E0B;
+            --bg-dark: #0C0C0F;
+            --bg-card: #16161A;
+            --bg-elevated: #1E1E24;
+            --bg-hover: #26262E;
+            --text-primary: #FFFFFF;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+            --border: #2D2D35;
+            --gradient-safe: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+            --gradient-warning: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+            --gradient-danger: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Background Effects */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 0% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--gradient-safe);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+        }
+
+        .logo-text {
+            font-size: 1.7rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .header-btn {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            padding: 0.7rem 1.2rem;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            font-weight: 500;
+        }
+
+        .header-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .header-btn.primary {
+            background: var(--gradient-safe);
+            color: white;
+            border: none;
+        }
+
+        .header-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Status Banner */
+        .status-banner {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.5s;
+        }
+
+        .status-banner.safe {
+            border-color: var(--primary);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, var(--bg-card) 50%);
+        }
+
+        .status-banner.warning {
+            border-color: var(--warning);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, var(--bg-card) 50%);
+        }
+
+        .status-banner.danger {
+            border-color: var(--danger);
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, var(--bg-card) 50%);
+            animation: pulse-danger 2s infinite;
+        }
+
+        @keyframes pulse-danger {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+            50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .status-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+
+        .status-banner.safe .status-icon { background: var(--gradient-safe); }
+        .status-banner.warning .status-icon { background: var(--gradient-warning); }
+        .status-banner.danger .status-icon { background: var(--gradient-danger); }
+
+        .status-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .status-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .status-right {
+            text-align: right;
+        }
+
+        .days-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .days-count {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .status-banner.safe .days-count { color: var(--primary); }
+        .status-banner.warning .days-count { color: var(--warning); }
+        .status-banner.danger .days-count { color: var(--danger); }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1100px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .card-badge {
+            background: var(--bg-elevated);
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            height: 320px;
+            position: relative;
+        }
+
+        /* Forecast Details */
+        .forecast-details {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .forecast-item {
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .forecast-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .forecast-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .forecast-value.positive { color: var(--primary); }
+        .forecast-value.negative { color: var(--danger); }
+        .forecast-value.neutral { color: var(--accent); }
+
+        /* Recurring Transactions */
+        .recurring-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .recurring-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            background: var(--bg-elevated);
+            margin-bottom: 0.75rem;
+            transition: all 0.3s;
+        }
+
+        .recurring-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .recurring-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: var(--bg-dark);
+        }
+
+        .recurring-info {
+            flex: 1;
+        }
+
+        .recurring-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+
+        .recurring-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .recurring-amount {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .recurring-amount.expense { color: var(--danger); }
+        .recurring-amount.income { color: var(--primary); }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Balance Meter */
+        .balance-meter {
+            background: var(--bg-elevated);
+            border-radius: 14px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .meter-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .meter-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-top: 0.3rem;
+        }
+
+        .meter-change {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .meter-change.up {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary);
+        }
+
+        .meter-change.down {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .meter-bar-container {
+            position: relative;
+            height: 12px;
+            background: var(--bg-dark);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+
+        .meter-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1s ease, background 0.5s ease;
+        }
+
+        .meter-markers {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* Alert Cards */
+        .alert-card {
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            padding: 1rem;
+            border-left: 4px solid;
+            margin-bottom: 0.75rem;
+        }
+
+        .alert-card.warning {
+            border-color: var(--warning);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-elevated) 100%);
+        }
+
+        .alert-card.danger {
+            border-color: var(--danger);
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-elevated) 100%);
+        }
+
+        .alert-card.info {
+            border-color: var(--secondary);
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, var(--bg-elevated) 100%);
+        }
+
+        .alert-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert-icon { font-size: 1.1rem; }
+
+        .alert-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .alert-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Model Stats */
+        .model-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-item {
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.4rem;
+        }
+
+        .stat-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Scenario Controls */
+        .scenario-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .scenario-btn {
+            flex: 1;
+            background: var(--bg-elevated);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .scenario-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        .scenario-btn.active {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .scenario-btn.active.warning {
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .scenario-btn.active.danger {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .scenario-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .scenario-desc {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .card {
+            animation: slideIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">📈</div>
+                <div>
+                    <div class="logo-text">Bankin'</div>
+                    <div class="logo-subtitle">Predictive Balance & Overdraft Alerts</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="header-btn" onclick="refreshForecast()">🔄 Refresh</button>
+                <button class="header-btn" onclick="configureAlerts()">⚙️ Configure Alerts</button>
+                <button class="header-btn primary" onclick="runSimulation()">▶️ Run Simulation</button>
+            </div>
+        </header>
+
+        <div class="status-banner safe" id="statusBanner">
+            <div class="status-left">
+                <div class="status-icon" id="statusIcon">✓</div>
+                <div>
+                    <div class="status-title" id="statusTitle">Balance Healthy</div>
+                    <div class="status-desc" id="statusDesc">No overdraft risk detected in the next 30 days</div>
+                </div>
+            </div>
+            <div class="status-right">
+                <div class="days-label">Days Until Risk</div>
+                <div class="days-count" id="daysCount">∞</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <span>📊</span> 30-Day Balance Forecast
+                    </h3>
+                    <span class="card-badge">LSTM Model</span>
+                </div>
+                <div class="card-body">
+                    <div class="scenario-controls">
+                        <button class="scenario-btn active" onclick="setScenario('optimistic')">
+                            <div class="scenario-label">🌟 Optimistic</div>
+                            <div class="scenario-desc">Expected income arrives</div>
+                        </button>
+                        <button class="scenario-btn" onclick="setScenario('realistic')">
+                            <div class="scenario-label">📌 Realistic</div>
+                            <div class="scenario-desc">Average spending</div>
+                        </button>
+                        <button class="scenario-btn" onclick="setScenario('pessimistic')">
+                            <div class="scenario-label">⚠️ Pessimistic</div>
+                            <div class="scenario-desc">Higher expenses</div>
+                        </button>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+
+                    <div class="forecast-details">
+                        <div class="forecast-item">
+                            <div class="forecast-label">Current</div>
+                            <div class="forecast-value positive" id="currentBalance">€3,847</div>
+                        </div>
+                        <div class="forecast-item">
+                            <div class="forecast-label">Predicted Income</div>
+                            <div class="forecast-value positive" id="predictedIncome">+€3,200</div>
+                        </div>
+                        <div class="forecast-item">
+                            <div class="forecast-label">Predicted Expenses</div>
+                            <div class="forecast-value negative" id="predictedExpenses">-€1,890</div>
+                        </div>
+                        <div class="forecast-item">
+                            <div class="forecast-label">End of Month</div>
+                            <div class="forecast-value positive" id="endBalance">€5,157</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span>💰</span> Balance Health</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="balance-meter">
+                            <div class="meter-header">
+                                <div>
+                                    <div class="meter-label">Available Balance</div>
+                                    <div class="meter-value" id="meterValue">€3,847</div>
+                                </div>
+                                <span class="meter-change up" id="meterChange">↑ 12%</span>
+                            </div>
+                            <div class="meter-bar-container">
+                                <div class="meter-bar" id="meterBar" style="width: 75%; background: var(--gradient-safe);"></div>
+                            </div>
+                            <div class="meter-markers">
+                                <span>€0</span>
+                                <span>Buffer: €500</span>
+                                <span>€5,000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span>🔔</span> Smart Alerts</h3>
+                    </div>
+                    <div class="card-body" id="alertsContainer">
+                        <div class="alert-card info">
+                            <div class="alert-header">
+                                <span class="alert-icon">💡</span>
+                                <span class="alert-title">Salary Expected</span>
+                            </div>
+                            <div class="alert-desc">Based on patterns, salary of ~€3,200 expected on Jan 25th</div>
+                        </div>
+                        <div class="alert-card warning">
+                            <div class="alert-header">
+                                <span class="alert-icon">📅</span>
+                                <span class="alert-title">Rent Due Soon</span>
+                            </div>
+                            <div class="alert-desc">Rent payment of €950 expected on Feb 1st</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span>🔄</span> Upcoming Recurring</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="recurring-list" id="recurringList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span>🧠</span> Model Stats</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="model-stats">
+                            <div class="stat-item">
+                                <div class="stat-label">Accuracy</div>
+                                <div class="stat-value">94.2%</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Confidence</div>
+                                <div class="stat-value">87%</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Data Points</div>
+                                <div class="stat-value">2,847</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Last Train</div>
+                                <div class="stat-value">2h ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Scenario Data
+        const scenarios = {
+            optimistic: {
+                balances: [3847, 3620, 3890, 3750, 6950, 6720, 6480, 6250, 6100, 5980, 5820, 5700, 5580, 5450, 5320, 5200, 5100, 5000, 4900, 4800, 4720, 4650, 4580, 4520, 4480, 4450, 4420, 4400, 4380, 4370],
+                income: 3200,
+                expenses: 1890,
+                endBalance: 5157,
+                status: 'safe',
+                daysUntilRisk: '∞',
+                statusTitle: 'Balance Healthy',
+                statusDesc: 'No overdraft risk detected in the next 30 days',
+                statusIcon: '✓',
+                meterPercent: 75,
+                meterChange: { text: '↑ 12%', class: 'up' }
+            },
+            realistic: {
+                balances: [3847, 3520, 3290, 3050, 5850, 5520, 5180, 4850, 4580, 4320, 4080, 3850, 3640, 3440, 3260, 3100, 2960, 2840, 2740, 2660, 2600, 2560, 2540, 2520, 2510, 2505, 2500, 2500, 2500, 2500],
+                income: 3200,
+                expenses: 2350,
+                endBalance: 2697,
+                status: 'warning',
+                daysUntilRisk: '28',
+                statusTitle: 'Low Balance Warning',
+                statusDesc: 'Balance may drop below €500 buffer around Feb 12th',
+                statusIcon: '⚠️',
+                meterPercent: 45,
+                meterChange: { text: '↓ 5%', class: 'down' }
+            },
+            pessimistic: {
+                balances: [3847, 3320, 2890, 2450, 5050, 4420, 3780, 3150, 2580, 2080, 1650, 1300, 1020, 800, 640, 540, 480, 440, 380, 300, 180, 20, -150, -350, -580, -820, -1100, -1400, -1720, -2050],
+                income: 3200,
+                expenses: 2900,
+                endBalance: -103,
+                status: 'danger',
+                daysUntilRisk: '12',
+                statusTitle: '🚨 Overdraft Risk Detected',
+                statusDesc: 'High probability of going negative around Jan 27th',
+                statusIcon: '🚨',
+                meterPercent: 15,
+                meterChange: { text: '↓ 28%', class: 'down' }
+            }
+        };
+
+        let currentScenario = 'optimistic';
+        let forecastChart = null;
+
+        const recurringTransactions = [
+            { name: 'Salary', icon: '💰', date: 'Jan 25', amount: 3200, type: 'income' },
+            { name: 'Rent', icon: '🏠', date: 'Feb 1', amount: -950, type: 'expense' },
+            { name: 'Netflix', icon: '📺', date: 'Jan 18', amount: -17.99, type: 'expense' },
+            { name: 'Electricity (EDF)', icon: '💡', date: 'Jan 20', amount: -85, type: 'expense' },
+            { name: 'Internet (Orange)', icon: '📶', date: 'Jan 22', amount: -35, type: 'expense' },
+            { name: 'Gym Membership', icon: '🏋️', date: 'Jan 15', amount: -45, type: 'expense' }
+        ];
+
+        function initChart() {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            const data = scenarios[currentScenario];
+            
+            const labels = Array.from({length: 30}, (_, i) => {
+                const date = new Date();
+                date.setDate(date.getDate() + i);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+            forecastChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Predicted Balance',
+                        data: data.balances,
+                        borderColor: '#10B981',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#10B981',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2
+                    }, {
+                        label: 'Safety Buffer',
+                        data: Array(30).fill(500),
+                        borderColor: '#F59E0B',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }, {
+                        label: 'Zero Line',
+                        data: Array(30).fill(0),
+                        borderColor: '#EF4444',
+                        borderWidth: 2,
+                        borderDash: [10, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#9CA3AF',
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { family: 'Plus Jakarta Sans', size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1E1E24',
+                            titleColor: '#fff',
+                            bodyColor: '#9CA3AF',
+                            borderColor: '#2D2D35',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: (ctx) => {
+                                    if (ctx.datasetIndex === 0) {
+                                        return `Balance: €${ctx.raw.toLocaleString()}`;
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#2D2D35', drawBorder: false },
+                            ticks: { 
+                                color: '#6B7280',
+                                font: { family: 'Plus Jakarta Sans', size: 11 },
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            grid: { color: '#2D2D35', drawBorder: false },
+                            ticks: {
+                                color: '#6B7280',
+                                font: { family: 'IBM Plex Mono', size: 11 },
+                                callback: (val) => '€' + val.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setScenario(scenario) {
+            currentScenario = scenario;
+            const data = scenarios[scenario];
+
+            // Update buttons
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.classList.remove('active', 'warning', 'danger');
+            });
+            const activeBtn = document.querySelector(`.scenario-btn[onclick="setScenario('${scenario}')"]`);
+            activeBtn.classList.add('active');
+            if (scenario === 'realistic') activeBtn.classList.add('warning');
+            if (scenario === 'pessimistic') activeBtn.classList.add('danger');
+
+            // Update chart
+            updateChart(data);
+
+            // Update status banner
+            updateStatusBanner(data);
+
+            // Update forecast details
+            document.getElementById('predictedIncome').textContent = `+€${data.income.toLocaleString()}`;
+            document.getElementById('predictedExpenses').textContent = `-€${data.expenses.toLocaleString()}`;
+            document.getElementById('endBalance').textContent = `€${data.endBalance.toLocaleString()}`;
+            document.getElementById('endBalance').className = `forecast-value ${data.endBalance >= 0 ? 'positive' : 'negative'}`;
+
+            // Update meter
+            updateMeter(data);
+
+            // Update alerts
+            updateAlerts(scenario);
+        }
+
+        function updateChart(data) {
+            const gradient = forecastChart.ctx.createLinearGradient(0, 0, 0, 300);
+            
+            if (data.status === 'safe') {
+                forecastChart.data.datasets[0].borderColor = '#10B981';
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            } else if (data.status === 'warning') {
+                forecastChart.data.datasets[0].borderColor = '#F59E0B';
+                gradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
+                gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            } else {
+                forecastChart.data.datasets[0].borderColor = '#EF4444';
+                gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+                gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+            }
+
+            forecastChart.data.datasets[0].backgroundColor = gradient;
+            forecastChart.data.datasets[0].data = data.balances;
+            forecastChart.update('active');
+        }
+
+        function updateStatusBanner(data) {
+            const banner = document.getElementById('statusBanner');
+            banner.className = `status-banner ${data.status}`;
+            document.getElementById('statusIcon').textContent = data.statusIcon;
+            document.getElementById('statusTitle').textContent = data.statusTitle;
+            document.getElementById('statusDesc').textContent = data.statusDesc;
+            document.getElementById('daysCount').textContent = data.daysUntilRisk;
+        }
+
+        function updateMeter(data) {
+            const bar = document.getElementById('meterBar');
+            const change = document.getElementById('meterChange');
+            
+            bar.style.width = data.meterPercent + '%';
+            
+            if (data.status === 'safe') {
+                bar.style.background = 'var(--gradient-safe)';
+            } else if (data.status === 'warning') {
+                bar.style.background = 'var(--gradient-warning)';
+            } else {
+                bar.style.background = 'var(--gradient-danger)';
+            }
+
+            change.textContent = data.meterChange.text;
+            change.className = `meter-change ${data.meterChange.class}`;
+        }
+
+        function updateAlerts(scenario) {
+            const container = document.getElementById('alertsContainer');
+            
+            if (scenario === 'optimistic') {
+                container.innerHTML = `
+                    <div class="alert-card info">
+                        <div class="alert-header">
+                            <span class="alert-icon">💡</span>
+                            <span class="alert-title">Salary Expected</span>
+                        </div>
+                        <div class="alert-desc">Based on patterns, salary of ~€3,200 expected on Jan 25th</div>
+                    </div>
+                    <div class="alert-card warning">
+                        <div class="alert-header">
+                            <span class="alert-icon">📅</span>
+                            <span class="alert-title">Rent Due Soon</span>
+                        </div>
+                        <div class="alert-desc">Rent payment of €950 expected on Feb 1st</div>
+                    </div>
+                `;
+            } else if (scenario === 'realistic') {
+                container.innerHTML = `
+                    <div class="alert-card warning">
+                        <div class="alert-header">
+                            <span class="alert-icon">⚠️</span>
+                            <span class="alert-title">Low Balance Warning</span>
+                        </div>
+                        <div class="alert-desc">Balance may approach €500 buffer. Consider reducing non-essential spending.</div>
+                    </div>
+                    <div class="alert-card info">
+                        <div class="alert-header">
+                            <span class="alert-icon">💡</span>
+                            <span class="alert-title">Tip: Transfer Funds</span>
+                        </div>
+                        <div class="alert-desc">Transfer €500 from Livret A to maintain safety buffer</div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="alert-card danger">
+                        <div class="alert-header">
+                            <span class="alert-icon">🚨</span>
+                            <span class="alert-title">Overdraft Alert!</span>
+                        </div>
+                        <div class="alert-desc">High risk of going negative around Jan 27th. Immediate action recommended.</div>
+                    </div>
+                    <div class="alert-card danger">
+                        <div class="alert-header">
+                            <span class="alert-icon">💸</span>
+                            <span class="alert-title">Action Required</span>
+                        </div>
+                        <div class="alert-desc">Transfer at least €1,200 from savings or reduce upcoming expenses</div>
+                    </div>
+                    <div class="alert-card warning">
+                        <div class="alert-header">
+                            <span class="alert-icon">📞</span>
+                            <span class="alert-title">Contact Bank?</span>
+                        </div>
+                        <div class="alert-desc">Consider requesting temporary overdraft protection</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderRecurring() {
+            const list = document.getElementById('recurringList');
+            list.innerHTML = recurringTransactions.map(txn => `
+                <div class="recurring-item">
+                    <div class="recurring-icon">${txn.icon}</div>
+                    <div class="recurring-info">
+                        <div class="recurring-name">${txn.name}</div>
+                        <div class="recurring-date">Expected: ${txn.date}</div>
+                    </div>
+                    <div class="recurring-amount ${txn.type}">${txn.amount > 0 ? '+' : ''}€${Math.abs(txn.amount).toFixed(2)}</div>
+                </div>
+            `).join('');
+        }
+
+        function refreshForecast() {
+            // Simulate refresh
+            document.querySelector('.header-btn').textContent = '⏳ Loading...';
+            setTimeout(() => {
+                document.querySelector('.header-btn').textContent = '🔄 Refresh';
+                setScenario(currentScenario);
+            }, 1000);
+        }
+
+        function configureAlerts() {
+            alert('Alert configuration panel would open here.\n\nOptions:\n• Set balance threshold\n• Enable/disable email alerts\n• Configure push notifications\n• Set alert frequency');
+        }
+
+        function runSimulation() {
+            const scenarios = ['optimistic', 'realistic', 'pessimistic'];
+            let i = 0;
+            
+            const interval = setInterval(() => {
+                setScenario(scenarios[i]);
+                i++;
+                if (i >= scenarios.length) {
+                    clearInterval(interval);
+                }
+            }, 1500);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            renderRecurring();
+        });
+    </script>
+</body>
+</html>
